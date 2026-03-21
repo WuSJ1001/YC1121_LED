@@ -26,9 +26,9 @@ endif
 	beq patch11_6,p_mouse_idle
 	beq patch11_3,p_mouse_app_initflag_check
 	beq patch16_1,p_my_feature
-	beq patch16_3,p_my_timer
+	// beq patch16_3,p_my_timer
 
-	beq patch18_4,p_otp_write
+	// beq patch18_4,p_otp_write
 	beq patch1b_2,p_sadc_calibration
 ifdef ADC_1121SA
 	beq patch1b_3,p_adc_init_data_a
@@ -1380,63 +1380,64 @@ endif
 
 
 /* regb = otp address, rega pointers data, loopcnt is count */
-p_otp_write:
-//	bpatch patch18_4,mem_patch18
-	call otp_enable_chgpump65
-	call otp_set_addr
-	call otp_reset
-p_otp_program:
-	ifetcht 1,rega
-	increase 1,rega
-	force 0,queue
-p_otp_program_bit:
-	set0 mark_otp_write,mark
-p_otp_program_bit2:
-	qisolate0 temp
-	branch p_otp_skip_0,true
-	fetch 1,core_otp_din
-	set1 6,pdata				/* din */
-	set1 7,pdata				/* dle */
-	store 1,core_otp_din
-	jam 0x02,core_otp_ctrl	/* web */
-	jam 0x82,core_otp_ctrl
-	set0 7,pdata				/* dle */
-	store 1,core_otp_din
-	jam 0x8a,core_otp_ctrl	/* pgmen */
-	nop 11
-	jam 0xca,core_otp_ctrl	/* vppen */
-	nop 33
-	jam 0x4a,core_otp_ctrl	/* web 2nd */
-	nop 44
-	jam 0xca,core_otp_ctrl	/* release web */
-	nop 22
-	jam 0x8a,core_otp_ctrl	/* release vppen */
-	nop 33
-	jam 0x82,core_otp_ctrl	/* release pgmen */
-	nop 1
-	jam 0x92,core_otp_ctrl	/* pgmvfy */
-	nop 10
-	jam 0xb2,core_otp_ctrl	/* readen */
-	fetch 1,core_otp_rdata
-	jam 0x92,core_otp_ctrl	/* release readen */
-	nop 1
-	jam 0x82,core_otp_ctrl	/* release pgmvfy */
-	nop 1
-	qisolate0 pdata
-	branch p_otp_program_bit,true	/* program error */
-	bmark1 mark_otp_write,p_otp_skip_0
-	set1 mark_otp_write,mark
-	branch p_otp_program_bit2
 
-p_otp_skip_0:
-	fetch 2,core_otp_addr
-	increase 1,pdata
-	store 2,core_otp_addr
-	increase 1,queue
-	compare 8,queue,0xf
-	nbranch p_otp_program_bit,true
-	loop p_otp_program
-	branch otp_disable_chgpump	
+// p_otp_write:
+// //	bpatch patch18_4,mem_patch18
+// 	call otp_enable_chgpump65
+// 	call otp_set_addr
+// 	call otp_reset
+// p_otp_program:
+// 	ifetcht 1,rega
+// 	increase 1,rega
+// 	force 0,queue
+// p_otp_program_bit:
+// 	set0 mark_otp_write,mark
+// p_otp_program_bit2:
+// 	qisolate0 temp
+// 	branch p_otp_skip_0,true
+// 	fetch 1,core_otp_din
+// 	set1 6,pdata				/* din */
+// 	set1 7,pdata				/* dle */
+// 	store 1,core_otp_din
+// 	jam 0x02,core_otp_ctrl	/* web */
+// 	jam 0x82,core_otp_ctrl
+// 	set0 7,pdata				/* dle */
+// 	store 1,core_otp_din
+// 	jam 0x8a,core_otp_ctrl	/* pgmen */
+// 	nop 11
+// 	jam 0xca,core_otp_ctrl	/* vppen */
+// 	nop 33
+// 	jam 0x4a,core_otp_ctrl	/* web 2nd */
+// 	nop 44
+// 	jam 0xca,core_otp_ctrl	/* release web */
+// 	nop 22
+// 	jam 0x8a,core_otp_ctrl	/* release vppen */
+// 	nop 33
+// 	jam 0x82,core_otp_ctrl	/* release pgmen */
+// 	nop 1
+// 	jam 0x92,core_otp_ctrl	/* pgmvfy */
+// 	nop 10
+// 	jam 0xb2,core_otp_ctrl	/* readen */
+// 	fetch 1,core_otp_rdata
+// 	jam 0x92,core_otp_ctrl	/* release readen */
+// 	nop 1
+// 	jam 0x82,core_otp_ctrl	/* release pgmvfy */
+// 	nop 1
+// 	qisolate0 pdata
+// 	branch p_otp_program_bit,true	/* program error */
+// 	bmark1 mark_otp_write,p_otp_skip_0
+// 	set1 mark_otp_write,mark
+// 	branch p_otp_program_bit2
+
+// p_otp_skip_0:
+// 	fetch 2,core_otp_addr
+// 	increase 1,pdata
+// 	store 2,core_otp_addr
+// 	increase 1,queue
+// 	compare 8,queue,0xf
+// 	nbranch p_otp_program_bit,true
+// 	loop p_otp_program
+// 	branch otp_disable_chgpump	
 
 // 	
 // GPIO21和GPIO22连接两个高电平有效LED灯，GPIO23和GPIO12连接连接两个按键
@@ -1449,11 +1450,9 @@ p_my_feature:
     //第一种配置方法
     arg gpcfg_output_high , temp
 	setarg 21
-    // call gpio_config_function
     call gpio_config_function_int
     // 第二种配置方法
     arg 22,temp
-	// call gpio_out_active
     call gpio_out_inactive
 
 // 	这样 LED 引脚复用成推挽输出，并默认拉高。
@@ -1478,9 +1477,11 @@ p_my_feature:
 	rtn
 
 
-p_my_timer:
-	increase 10,  pdata
-	store  1,  mem_app_evt_timer_count
+// p_my_timer:
+	// fetch 1,mem_app_evt_timer_count
+	// increase 10,  pdata
+	// store  1,  mem_app_evt_timer_count
+	// rtn
 
 
 key_loop:
@@ -1492,7 +1493,8 @@ key_loop:
 //   - 循环轮询并翻转 LED21
 key_loop_key1:
 	// 读取 GPIO23
-	
+	// call ice_break
+	// jam  0xff,mem_module_my_flage
 	arg 0x17,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
 	nrtn true      // 没按下继续轮询
@@ -1519,6 +1521,7 @@ led_turn:
 	ncall led_turn_off,true    // 非零表示当前亮
 	call led_turn_on,true    // 零表示当前灭
 	rtn
+
 led_turn_off:
     // copy regb,temp
     isolate0 GPIO_ACTIVE_BIT,temp   // bit7=0 -> 关闭

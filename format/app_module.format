@@ -1,4 +1,3 @@
-
 memalloc module(
 	//ble
 	2 mem_module_le_rx_data_len
@@ -67,6 +66,9 @@ xmemalloc module(
 	1 mem_module_hci_notify_type
 
 	1 mem_le_conn_flag
+
+	2 mem_module_my_flage
+
 
 ifdef COMPILE_WECHAT
 	1 mem_module_wechat_indication_handle
