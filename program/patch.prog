@@ -1445,15 +1445,75 @@ endif
 // 按下对应按键时翻转对应的LED灯。
 // 
 // 	
+
 p_my_feature:
+	call  p_my_feature_init
+	call  Wu_ui_timer_check
+	call  p_my_feature_loop
+
+p_my_feature_loop:
+	call  Wu_ui_timer_check
+	call  p_my_feature_loop
+
+
+
+Wu_ui_timer_check:
+	arg 0,rega
+	fetcht 4,mem_ui_timer_last_btclk
+	copy clkn_bt,regb
+	copy regb,pdata
+	isub temp,null
+	ncall ui_timer_timeout,positive
+Wu_ui_timer_check_loop:
+	copy regb,pdata
+	increase 16,temp    //32btclk = 10ms
+	increase 16,temp
+	isub temp,null
+	nbranch Wu_ui_timer_check_end,positive
+	increase 1,rega   //increase 1 every 10ms count
+	and rega,0x0f,pdata
+	nbranch Wu_ui_timer_check_loop,blank
+	arg 0,rega  //reset timer if it's longer than 1.5s between 2 checks
+	call Wu_ui_timer_check_send_evt
+ui_timer_init:
+	copy clkn_bt,pdata
+	store 4,mem_ui_timer_last_btclk
+	rtn
+Wu_ui_timer_check_end:
+	copy rega,pdata
+	rtn blank
+	increase -16,temp    //32btclk = 10ms
+	increase -16,temp
+	set0 28,temp
+	storet 4,mem_ui_timer_last_btclk
+Wu_ui_timer_check_send_evt:
+	branch Wu_app_evt_timer
+
+
+Wu_app_evt_timer:
+	store 1,mem_app_evt_timer_count
+Wu_app_evt_100ms_loop:
+	fetch 1,mem_app_evt_timer_count
+	rtn blank
+	increase -1,pdata
+	store 1,mem_app_evt_timer_count
+	call key_loop
+	branch app_evt_100ms_loop
+
+
+p_my_feature_init:
 	// 1. Config LEDs (Output high + Pulldown)
     //第一种配置方法
+	
+	jam  0xff,mem_module_my_flage
     arg gpcfg_output_high , temp
 	setarg 21
     call gpio_config_function_int
+	setarg 22
+    call gpio_config_function_int
     // 第二种配置方法
-    arg 22,temp
-    call gpio_out_inactive
+    // arg 22,temp
+    // call gpio_out_inactive
 
 // 	这样 LED 引脚复用成推挽输出，并默认拉高。
 //   - 配置 GPIO23 为上拉输入（按下接地，视为有效）
@@ -1462,7 +1522,7 @@ p_my_feature:
 	setarg 23
 	call gpio_config_function_int
 	
-	arg gpcfg_input|gpcfg_pullup,temp
+	// arg gpcfg_input|gpcfg_pullup,temp
 	setarg 12
 	call gpio_config_function_int
 
@@ -1471,17 +1531,7 @@ p_my_feature:
 	call gpio_config_input
 	arg 0x0c,temp        // bit7=0, 低电平算“按下”
 	call gpio_config_input
-
-	setarg key_loop
-	store 2,mem_cb_event_timer
 	rtn
-
-
-// p_my_timer:
-	// fetch 1,mem_app_evt_timer_count
-	// increase 10,  pdata
-	// store  1,  mem_app_evt_timer_count
-	// rtn
 
 
 key_loop:
@@ -1493,8 +1543,6 @@ key_loop:
 //   - 循环轮询并翻转 LED21
 key_loop_key1:
 	// 读取 GPIO23
-	// call ice_break
-	// jam  0xff,mem_module_my_flage
 	arg 0x17,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
 	nrtn true      // 没按下继续轮询
@@ -1508,6 +1556,7 @@ key_loop_key2:
 	// 读取 GPIO12
 	arg 0x0c,temp        // 仍然是“低有效、编号12”
 	call gpio_get_bit
+	
 	nrtn true      // 没按下继续轮询
 	
 	// 检查当前 LED 状态
@@ -1518,17 +1567,14 @@ key_loop_key2:
 led_turn:
 	// 检查当前 LED 状态
 	call gpio_check_active      // temp: GPIO 编号 (0~31)，默认低电平为点亮
-	ncall led_turn_off,true    // 非零表示当前亮
-	call led_turn_on,true    // 零表示当前灭
-	rtn
+	nbranch led_turn_off,true    // 非零表示当前亮
+	branch led_turn_on    // 零表示当前灭
 
 led_turn_off:
-    // copy regb,temp
     isolate0 GPIO_ACTIVE_BIT,temp   // bit7=0 -> 关闭
     call gpio_out
     rtn
 led_turn_on:
-    // copy regb,temp
     set1 GPIO_ACTIVE_BIT,temp               // bit7=1 -> 点亮
     call gpio_out
     rtn
