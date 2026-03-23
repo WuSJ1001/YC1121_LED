@@ -1519,7 +1519,7 @@ p_my_feature_init:
 	setarg 12
 	call gpio_config_function_int
 	// 声明它为低有效输入
-	arg 0x17,temp        // bit7=0, 低电平算“按下”
+	arg 0x17,temp        // bit7=1, 低电平算“按下”
 	call gpio_config_input
 	arg 0x0c,temp        // bit7=0, 低电平算“按下”
 	call gpio_config_input
@@ -1543,20 +1543,21 @@ key_loop_key1:
 	// 读取 GPIO23
 	arg 0x17,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
-	nbranch  key1_released, true      // 没按下
-key1_pressed:
-	//按键消抖
-	jam 0x0,  mem_module_my_key1_release_flage
+	// fetcht  1,  true
 	fetch  1,  mem_module_my_key1_flage
-	increase 1,  pdata
+	lshift  pdata, pdata
+	setflag true,0,pdata
 	store  1,  mem_module_my_key1_flage
-	sub pdata, 2 ,null
-	rtn positive
+	and   pdata, 0x0f, pdata      // 仅保留低四位
+	branch key1_released, blank   // 低四位全 0 -> 松开
+key1_pressed:
+	//按键
+	jam 0x0 ,	mem_module_my_key1_release_flage
 	jam 0x1,  mem_module_my_led1_flage
 	rtn
 key1_released:
 	//按键释放后才继续轮询，避免按键长按时重复触发
-	jam 1 ,	mem_module_my_key1_release_flage
+	jam 0x1 ,	mem_module_my_key1_release_flage
 	//按键消抖标志位
 	jam 0x0,  mem_module_my_key1_flage
 	rtn
@@ -1565,20 +1566,21 @@ key_loop_key2:
 	// 读取 GPIO12
 	arg 0x0c,temp        // 仍然是“低有效、编号12”
 	call gpio_get_bit
-	nbranch  key2_released, true     // 没按下
+	// fetcht  1,  true
+	fetch  1,  mem_module_my_key2_flage
+	lshift  pdata, pdata
+	setflag true,0,pdata
+	store  1,  mem_module_my_key2_flage
+	and   pdata, 0x0f, pdata      // 仅保留低四位
+	branch key2_released, blank   // 低四位全 0 -> 松开
 key2_pressed:
 	//按键消抖
 	jam 0x0,  mem_module_my_key2_release_flage
-	fetch  1,  mem_module_my_key2_flage
-	increase 1,  pdata
-	store  1,  mem_module_my_key2_flage
-	sub pdata, 2 ,null
-	rtn positive
 	jam 0x1,  mem_module_my_led2_flage
 	rtn
 key2_released:
 	//按键释放后才继续轮询，避免按键长按时重复触发
-	jam 1 ,	mem_module_my_key2_release_flage
+	jam 0x1 ,	mem_module_my_key2_release_flage
 	//按键消抖标志位
 	jam 0x0,  mem_module_my_key2_flage
 	rtn
