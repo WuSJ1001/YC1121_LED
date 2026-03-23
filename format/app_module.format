@@ -67,7 +67,8 @@ xmemalloc module(
 
 	1 mem_le_conn_flag
 
-	2 mem_module_my_flage
+	1 mem_module_my_key1_flage
+	1 mem_module_my_key2_flage
 
 
 ifdef COMPILE_WECHAT

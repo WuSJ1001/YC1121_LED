@@ -1449,12 +1449,10 @@ endif
 p_my_feature:
 	call  p_my_feature_init
 	call  Wu_ui_timer_check
-	call  p_my_feature_loop
 
 p_my_feature_loop:
 	call  Wu_ui_timer_check
-	call  p_my_feature_loop
-
+	branch  p_my_feature_loop
 
 
 Wu_ui_timer_check:
@@ -1498,14 +1496,16 @@ Wu_app_evt_100ms_loop:
 	increase -1,pdata
 	store 1,mem_app_evt_timer_count
 	call key_loop
+	call led_loop
 	branch app_evt_100ms_loop
 
 
 p_my_feature_init:
+	jam 0x0,  mem_module_my_key1_flage
+	jam 0x0,  mem_module_my_key2_flage
+
 	// 1. Config LEDs (Output high + Pulldown)
     //第一种配置方法
-	
-	jam  0xff,mem_module_my_flage
     arg gpcfg_output_high , temp
 	setarg 21
     call gpio_config_function_int
@@ -1538,6 +1538,12 @@ key_loop:
 	call key_loop_key1
 	call key_loop_key2
 	rtn
+
+led_loop:
+	// 循环轮询并翻转 LED22
+	// call led_turn
+	rtn
+
 //     gpio_config_input 会自动调用 gpio_set_wake/gpio_addr，并打开输入缓冲。低有效意味着当按钮把 23 脚拉到地时
 //     gpio_get_bit 会返回 1。
 //   - 循环轮询并翻转 LED21
@@ -1546,7 +1552,16 @@ key_loop_key1:
 	arg 0x17,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
 	nrtn true      // 没按下继续轮询
-
+	//按键消抖
+	fetch  1,  mem_module_my_key1_flage
+	increase 1,  pdata
+	store  1,  mem_module_my_key1_flage
+	sub pdata, 2 ,null
+	rtn positive
+	jam 0x1,  mem_module_my_key1_flage
+	// 按键被按下了，等待按键释放
+	arg 0x17,temp
+	call key_wait
 	// 检查当前 LED 状态
 	arg 0x15,temp             // bit7=0 读取状态/准备输出低
 	call led_turn
@@ -1558,7 +1573,17 @@ key_loop_key2:
 	call gpio_get_bit
 	
 	nrtn true      // 没按下继续轮询
+	//按键消抖
+	fetch  1,  mem_module_my_key2_flage
+	increase 1,  pdata
+	store  1,  mem_module_my_key2_flage
+	sub pdata, 2 ,null
+	rtn positive
 	
+	jam 0x1,  mem_module_my_key2_flage
+	// 按键被按下了，等待按键释放
+	arg 0x0c,temp
+	call key_wait
 	// 检查当前 LED 状态
 	arg 0x16,temp             // bit7=0 读取状态/准备输出低
 	call led_turn
@@ -1578,3 +1603,8 @@ led_turn_on:
     set1 GPIO_ACTIVE_BIT,temp               // bit7=1 -> 点亮
     call gpio_out
     rtn
+
+key_wait:
+	call  gpio_get_bit
+	branch  key_wait, true      // 按下就卡死在这里，松开了才继续往下走
+	rtn
