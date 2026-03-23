@@ -1448,13 +1448,11 @@ endif
 
 p_my_feature:
 	call  p_my_feature_init
-	call  Wu_ui_timer_check
-
 p_my_feature_loop:
 	call  Wu_ui_timer_check
 	branch  p_my_feature_loop
 
-
+//10ms定时器
 Wu_ui_timer_check:
 	arg 0,rega
 	fetcht 4,mem_ui_timer_last_btclk
@@ -1486,8 +1484,6 @@ Wu_ui_timer_check_end:
 	storet 4,mem_ui_timer_last_btclk
 Wu_ui_timer_check_send_evt:
 	branch Wu_app_evt_timer
-
-
 Wu_app_evt_timer:
 	store 1,mem_app_evt_timer_count
 Wu_app_evt_100ms_loop:
@@ -1495,15 +1491,15 @@ Wu_app_evt_100ms_loop:
 	rtn blank
 	increase -1,pdata
 	store 1,mem_app_evt_timer_count
-	call key_loop
-	call led_loop
+	call my_loop
 	branch app_evt_100ms_loop
 
 
 p_my_feature_init:
 	jam 0x0,  mem_module_my_key1_flage
 	jam 0x0,  mem_module_my_key2_flage
-
+	jam 0x0,  mem_module_my_led1_flage
+	jam 0x0,  mem_module_my_led2_flage
 	// 1. Config LEDs (Output high + Pulldown)
     //第一种配置方法
     arg gpcfg_output_high , temp
@@ -1514,18 +1510,14 @@ p_my_feature_init:
     // 第二种配置方法
     // arg 22,temp
     // call gpio_out_inactive
-
 // 	这样 LED 引脚复用成推挽输出，并默认拉高。
 //   - 配置 GPIO23 为上拉输入（按下接地，视为有效）
 	// 选择输入+上拉复用
 	arg gpcfg_input|gpcfg_pullup,temp
 	setarg 23
 	call gpio_config_function_int
-	
-	// arg gpcfg_input|gpcfg_pullup,temp
 	setarg 12
 	call gpio_config_function_int
-
 	// 声明它为低有效输入
 	arg 0x17,temp        // bit7=0, 低电平算“按下”
 	call gpio_config_input
@@ -1534,67 +1526,88 @@ p_my_feature_init:
 	rtn
 
 
+// 主循环
+my_loop:
 key_loop:
 	call key_loop_key1
 	call key_loop_key2
-	rtn
-
 led_loop:
-	// 循环轮询并翻转 LED22
-	// call led_turn
+	// 循环轮询并翻转 LED
+	call  led_loop_led1
+	call  led_loop_led2
 	rtn
 
-//     gpio_config_input 会自动调用 gpio_set_wake/gpio_addr，并打开输入缓冲。低有效意味着当按钮把 23 脚拉到地时
-//     gpio_get_bit 会返回 1。
-//   - 循环轮询并翻转 LED21
+
+//扫键
 key_loop_key1:
 	// 读取 GPIO23
 	arg 0x17,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
-	nrtn true      // 没按下继续轮询
+	nbranch  key1_released, true      // 没按下
+key1_pressed:
 	//按键消抖
+	jam 0x0,  mem_module_my_key1_release_flage
 	fetch  1,  mem_module_my_key1_flage
 	increase 1,  pdata
 	store  1,  mem_module_my_key1_flage
 	sub pdata, 2 ,null
 	rtn positive
-	jam 0x1,  mem_module_my_key1_flage
-	// 按键被按下了，等待按键释放
-	arg 0x17,temp
-	call key_wait
-	// 检查当前 LED 状态
-	arg 0x15,temp             // bit7=0 读取状态/准备输出低
-	call led_turn
+	jam 0x1,  mem_module_my_led1_flage
+	rtn
+key1_released:
+	//按键释放后才继续轮询，避免按键长按时重复触发
+	jam 1 ,	mem_module_my_key1_release_flage
+	//按键消抖标志位
+	jam 0x0,  mem_module_my_key1_flage
 	rtn
 
 key_loop_key2:
 	// 读取 GPIO12
 	arg 0x0c,temp        // 仍然是“低有效、编号12”
 	call gpio_get_bit
-	
-	nrtn true      // 没按下继续轮询
+	nbranch  key2_released, true     // 没按下
+key2_pressed:
 	//按键消抖
+	jam 0x0,  mem_module_my_key2_release_flage
 	fetch  1,  mem_module_my_key2_flage
 	increase 1,  pdata
 	store  1,  mem_module_my_key2_flage
 	sub pdata, 2 ,null
 	rtn positive
-	
-	jam 0x1,  mem_module_my_key2_flage
-	// 按键被按下了，等待按键释放
-	arg 0x0c,temp
-	call key_wait
-	// 检查当前 LED 状态
-	arg 0x16,temp             // bit7=0 读取状态/准备输出低
-	call led_turn
+	jam 0x1,  mem_module_my_led2_flage
+	rtn
+key2_released:
+	//按键释放后才继续轮询，避免按键长按时重复触发
+	jam 1 ,	mem_module_my_key2_release_flage
+	//按键消抖标志位
+	jam 0x0,  mem_module_my_key2_flage
 	rtn
 
+// 扫 LED
+led_loop_led1:
+	fetch  1,  mem_module_my_key1_release_flage
+	rtn blank  // 按键没释放继续轮询
+	fetch  1,  mem_module_my_led1_flage
+	rtn blank
+	arg 0x15,temp
+	call  led_turn
+	jam 0,  mem_module_my_led1_flage
+	rtn
+led_loop_led2:
+	fetch  1,  mem_module_my_key2_release_flage
+	rtn blank  // 按键没释放继续轮询
+	fetch  1,  mem_module_my_led2_flage
+	rtn blank
+	arg 0x16,temp
+	call  led_turn
+	jam 0,  mem_module_my_led2_flage
+	rtn
+
+//LED 翻转函数
 led_turn:
 	// 检查当前 LED 状态
 	call gpio_check_active      // temp: GPIO 编号 (0~31)，默认低电平为点亮
-	nbranch led_turn_off,true    // 非零表示当前亮
-	branch led_turn_on    // 零表示当前灭
-
+	branch led_turn_on ,true   // 零表示当前灭
 led_turn_off:
     isolate0 GPIO_ACTIVE_BIT,temp   // bit7=0 -> 关闭
     call gpio_out
@@ -1603,8 +1616,3 @@ led_turn_on:
     set1 GPIO_ACTIVE_BIT,temp               // bit7=1 -> 点亮
     call gpio_out
     rtn
-
-key_wait:
-	call  gpio_get_bit
-	branch  key_wait, true      // 按下就卡死在这里，松开了才继续往下走
-	rtn

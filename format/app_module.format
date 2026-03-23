@@ -67,8 +67,14 @@ xmemalloc module(
 
 	1 mem_le_conn_flag
 
+	//WuSJ feature_flage
 	1 mem_module_my_key1_flage
 	1 mem_module_my_key2_flage
+	1 mem_module_my_led1_flage
+	1 mem_module_my_led2_flage
+	1 mem_module_my_key1_release_flage
+	1 mem_module_my_key2_release_flage
+
 
 
 ifdef COMPILE_WECHAT
