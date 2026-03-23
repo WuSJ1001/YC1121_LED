@@ -1486,13 +1486,13 @@ Wu_ui_timer_check_send_evt:
 	branch Wu_app_evt_timer
 Wu_app_evt_timer:
 	store 1,mem_app_evt_timer_count
-Wu_app_evt_100ms_loop:
+Wu_app_evt_10ms_loop:
 	fetch 1,mem_app_evt_timer_count
 	rtn blank
 	increase -1,pdata
 	store 1,mem_app_evt_timer_count
 	call my_loop
-	branch app_evt_100ms_loop
+	branch Wu_app_evt_10ms_loop
 
 
 p_my_feature_init:
@@ -1539,11 +1539,11 @@ led_loop:
 
 
 //扫键
+
 key_loop_key1:
 	// 读取 GPIO23
 	arg 0x17,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
-	// fetcht  1,  true
 	fetch  1,  mem_module_my_key1_flage
 	lshift  pdata, pdata
 	setflag true,0,pdata
@@ -1551,22 +1551,39 @@ key_loop_key1:
 	and   pdata, 0x0f, pdata      // 仅保留低四位
 	branch key1_released, blank   // 低四位全 0 -> 松开
 key1_pressed:
-	//按键
-	jam 0x0 ,	mem_module_my_key1_release_flage
+	//按键按下标志位
+	jam 0x0,  mem_module_my_key1_release_flage
+	//按键按下，开始计时
+	fetch 1, mem_module_my_key1_press_ticks
+	increase 1,  pdata
+	store  1,  mem_module_my_key1_press_ticks
+	//判断是长按还是短按
+	sub   pdata, 146, null
+	//长按
+	nbranch key1_long_pressed, positive
 	jam 0x1,  mem_module_my_led1_flage
 	rtn
 key1_released:
+	//长按事件标志位
+	jam 0x0,  mem_module_my_key1_long_press_flag
+	//长按事件标志计数器
+	jam 0x0,  mem_module_my_key1_press_ticks
 	//按键释放后才继续轮询，避免按键长按时重复触发
 	jam 0x1 ,	mem_module_my_key1_release_flage
 	//按键消抖标志位
 	jam 0x0,  mem_module_my_key1_flage
+	rtn
+key1_long_pressed:
+	// 长按事件标志位
+	jam 0x1,  mem_module_my_key1_long_press_flag
+	//长按事件标志计数器
+	jam 0x0,  mem_module_my_key1_press_ticks
 	rtn
 
 key_loop_key2:
 	// 读取 GPIO12
 	arg 0x0c,temp        // 仍然是“低有效、编号12”
 	call gpio_get_bit
-	// fetcht  1,  true
 	fetch  1,  mem_module_my_key2_flage
 	lshift  pdata, pdata
 	setflag true,0,pdata
@@ -1574,19 +1591,43 @@ key_loop_key2:
 	and   pdata, 0x0f, pdata      // 仅保留低四位
 	branch key2_released, blank   // 低四位全 0 -> 松开
 key2_pressed:
-	//按键消抖
+	//按键按下标志位
 	jam 0x0,  mem_module_my_key2_release_flage
+	//按键按下，开始计时
+	fetch 1, mem_module_my_key2_press_ticks
+	increase 1,  pdata
+	store  1,  mem_module_my_key2_press_ticks
+	//判断是长按还是短按
+	sub   pdata, 146, null
+	//长按
+	nbranch key2_long_pressed, positive
 	jam 0x1,  mem_module_my_led2_flage
 	rtn
 key2_released:
+	//长按事件标志位
+	jam 0x0,  mem_module_my_key2_long_press_flag
+	//长按事件标志计数器
+	jam 0x0,  mem_module_my_key2_press_ticks
 	//按键释放后才继续轮询，避免按键长按时重复触发
 	jam 0x1 ,	mem_module_my_key2_release_flage
+
 	//按键消抖标志位
 	jam 0x0,  mem_module_my_key2_flage
 	rtn
+key2_long_pressed:
+	// 长按事件标志位
+	jam 0x1,  mem_module_my_key2_long_press_flag
+	//长按事件标志计数器
+	jam 0x0,  mem_module_my_key2_press_ticks
+	rtn
+
+
 
 // 扫 LED
 led_loop_led1:
+	fetch  1,  mem_module_my_key1_long_press_flag
+	// 长按事件触发后进入长按事件处理流程，未触发则继续正常轮询
+	nbranch led1_long_pressed,  blank
 	fetch  1,  mem_module_my_key1_release_flage
 	rtn blank  // 按键没释放继续轮询
 	fetch  1,  mem_module_my_led1_flage
@@ -1595,7 +1636,24 @@ led_loop_led1:
 	call  led_turn
 	jam 0,  mem_module_my_led1_flage
 	rtn
+//key1 长按事件处理
+led1_long_pressed:
+	fetch  1,  mem_module_my_key1_release_flage
+	nrtn blank  // 按键释放停止长按事件处理
+	fetch  1,  mem_module_my_key1_long_press_counter
+	increase 1,  pdata
+	store  1,  mem_module_my_key1_long_press_counter
+	sub pdata, 10,  pdata
+	rtn positive
+	arg 0x15,temp
+	call  led_turn
+	jam 0,  mem_module_my_key1_long_press_counter
+	rtn
+
+
 led_loop_led2:
+	fetch  1,  mem_module_my_key2_long_press_flag
+	nbranch led2_long_pressed,  blank  // 长按事件触发后进入长按事件处理流程，未触发则继续正常轮询
 	fetch  1,  mem_module_my_key2_release_flage
 	rtn blank  // 按键没释放继续轮询
 	fetch  1,  mem_module_my_led2_flage
@@ -1603,6 +1661,19 @@ led_loop_led2:
 	arg 0x16,temp
 	call  led_turn
 	jam 0,  mem_module_my_led2_flage
+	rtn
+//key2 长按事件处理
+led2_long_pressed:
+	fetch  1,  mem_module_my_key2_release_flage
+	nrtn blank  // 按键释放停止长按事件处理
+	fetch  1,  mem_module_my_key2_long_press_counter
+	increase 1,  pdata
+	store  1,  mem_module_my_key2_long_press_counter
+	sub pdata, 10,  pdata
+	rtn positive
+	arg 0x16,temp
+	call  led_turn
+	jam 0,  mem_module_my_key2_long_press_counter
 	rtn
 
 //LED 翻转函数
