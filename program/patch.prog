@@ -1529,17 +1529,16 @@ p_my_feature_init:
 // 主循环
 my_loop:
 key_loop:
+	// 轮询扫键，更新按键状态
 	call key_loop_key1
 	call key_loop_key2
 led_loop:
-	// 循环轮询并翻转 LED
+	// 循环轮询 LED 状态，及时响应按键事件
 	call  led_loop_led1
 	call  led_loop_led2
 	rtn
 
-
-//扫键
-
+// key1 按键,连接 GPIO23
 key_loop_key1:
 	// 读取 GPIO23
 	arg 0x17,temp        // 仍然是“低有效、编号23”
@@ -1580,6 +1579,7 @@ key1_long_pressed:
 	jam 0x0,  mem_module_my_key1_press_ticks
 	rtn
 
+// key2 按键,连接 GPIO12
 key_loop_key2:
 	// 读取 GPIO12
 	arg 0x0c,temp        // 仍然是“低有效、编号12”
@@ -1610,7 +1610,6 @@ key2_released:
 	jam 0x0,  mem_module_my_key2_press_ticks
 	//按键释放后才继续轮询，避免按键长按时重复触发
 	jam 0x1 ,	mem_module_my_key2_release_flage
-
 	//按键消抖标志位
 	jam 0x0,  mem_module_my_key2_flage
 	rtn
@@ -1623,7 +1622,7 @@ key2_long_pressed:
 
 
 
-// 扫 LED
+// 扫 LED1 状态，连接 GPIO21
 led_loop_led1:
 	fetch  1,  mem_module_my_key1_long_press_flag
 	// 长按事件触发后进入长按事件处理流程，未触发则继续正常轮询
@@ -1650,7 +1649,7 @@ led1_long_pressed:
 	jam 0,  mem_module_my_key1_long_press_counter
 	rtn
 
-
+// 扫 LED2 状态，连接 GPIO22
 led_loop_led2:
 	fetch  1,  mem_module_my_key2_long_press_flag
 	nbranch led2_long_pressed,  blank  // 长按事件触发后进入长按事件处理流程，未触发则继续正常轮询
@@ -1676,7 +1675,7 @@ led2_long_pressed:
 	jam 0,  mem_module_my_key2_long_press_counter
 	rtn
 
-//LED 翻转函数
+//LED 翻转功能函数
 led_turn:
 	// 检查当前 LED 状态
 	call gpio_check_active      // temp: GPIO 编号 (0~31)，默认低电平为点亮
