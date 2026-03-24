@@ -1,0 +1,42 @@
+
+//WuSJ feature_flage
+
+xmemalloc my_feature(
+	1 mem_module_my_key1_flage
+	1 mem_module_my_key2_flage
+	1 mem_module_my_led1_flage
+	1 mem_module_my_led2_flage
+	1 mem_module_my_key1_release_flage
+	1 mem_module_my_key2_release_flage
+	1 mem_module_my_key1_press_ticks
+	1 mem_module_my_key2_press_ticks
+	1 mem_module_my_key1_long_press_flag
+	1 mem_module_my_key2_long_press_flag
+	1 mem_module_my_key1_long_press_counter
+	1 mem_module_my_key2_long_press_counter
+	1 mem_module_my_key1_long_press_period
+	1 mem_module_my_key2_long_press_period
+	1 mem_module_my_key1_long_press_timer_flag
+	1 mem_module_my_key2_long_press_timer_flag
+	1 mem_module_my_key1_long_press_dir
+	1 mem_module_my_key2_long_press_dir
+	1 mem_module_my_key1_long_press_phase
+	1 mem_module_my_key2_long_press_phase
+)
+
+
+(
+//KEY1长按闪灯周期控制变量，单位为10ms
+100 TIMERS_NUM1
+//LED1闪烁时间控制变量，单位为10ms
+10 STEP_SIZE1
+//KEY2长按闪灯周期控制变量，单位为10ms
+10 TIMERS_NUM2
+//LED2闪烁时间控制变量，单位为10ms
+1 STEP_SIZE2
+//GPIO引脚配置
+21 LED1
+22 LED2
+23 KEY1
+12 KEY2
+)

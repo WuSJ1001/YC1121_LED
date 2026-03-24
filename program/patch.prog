@@ -1471,7 +1471,7 @@ Wu_ui_timer_check_loop:
 	nbranch Wu_ui_timer_check_loop,blank
 	arg 0,rega  //reset timer if it's longer than 1.5s between 2 checks
 	call Wu_ui_timer_check_send_evt
-ui_timer_init:
+Wu_ui_timer_init:
 	copy clkn_bt,pdata
 	store 4,mem_ui_timer_last_btclk
 	rtn
@@ -1503,9 +1503,9 @@ p_my_feature_init:
 	// 1. Config LEDs (Output high + Pulldown)
     //第一种配置方法
     arg gpcfg_output_high , temp
-	setarg 21
+	setarg LED1
     call gpio_config_function_int
-	setarg 22
+	setarg LED2
     call gpio_config_function_int
     // 第二种配置方法
     // arg 22,temp
@@ -1514,14 +1514,14 @@ p_my_feature_init:
 //   - 配置 GPIO23 为上拉输入（按下接地，视为有效）
 	// 选择输入+上拉复用
 	arg gpcfg_input|gpcfg_pullup,temp
-	setarg 23
+	setarg KEY1
 	call gpio_config_function_int
-	setarg 12
+	setarg KEY2
 	call gpio_config_function_int
 	// 声明它为低有效输入
-	arg 0x17,temp        // bit7=1, 低电平算“按下”
+	arg KEY1,temp        // bit7=1, 低电平算“按下”
 	call gpio_config_input
-	arg 0x0c,temp        // bit7=0, 低电平算“按下”
+	arg KEY2,temp        // bit7=0, 低电平算“按下”
 	call gpio_config_input
 	rtn
 
@@ -1541,7 +1541,7 @@ led_loop:
 // key1 按键,连接 GPIO23
 key_loop_key1:
 	// 读取 GPIO23
-	arg 0x17,temp        // 仍然是“低有效、编号23”
+	arg KEY1,temp        // 仍然是“低有效、编号23”
 	call gpio_get_bit
 	fetch  1,  mem_module_my_key1_flage
 	lshift  pdata, pdata
@@ -1567,17 +1567,31 @@ key1_released:
 	jam 0x0,  mem_module_my_key1_long_press_flag
 	//长按事件标志计数器
 	jam 0x0,  mem_module_my_key1_press_ticks
+	//长按事件定时器标志位
+	jam 0x0,  mem_module_my_key1_long_press_timer_flag
 	//按键释放后才继续轮询，避免按键长按时重复触发
 	jam 0x1 ,	mem_module_my_key1_release_flage
 	//按键消抖标志位
 	jam 0x0,  mem_module_my_key1_flage
+	//长按闪灯循环计数器
+	setarg  TIMERS_NUM1
+	arg STEP_SIZE1,  temp
+	isub temp,  pdata
+	//mem_module_my_key1_long_press_period=TIMERS_NUM1-STEP_SIZE1
+	store  1,  mem_module_my_key1_long_press_period
+	jam TIMERS_NUM1,  mem_module_my_key1_long_press_counter
+	//长按闪灯方向计数器
+	jam 0x1,  mem_module_my_key1_long_press_dir
 	rtn
 key1_long_pressed:
 	// 长按事件标志位
 	jam 0x1,  mem_module_my_key1_long_press_flag
 	//长按事件标志计数器
 	jam 0x0,  mem_module_my_key1_press_ticks
+	//长按事件定时器标志位
+	jam 0x1,  mem_module_my_key1_long_press_timer_flag
 	rtn
+
 
 // key2 按键,连接 GPIO12
 key_loop_key2:
@@ -1621,7 +1635,6 @@ key2_long_pressed:
 	rtn
 
 
-
 // 扫 LED1 状态，连接 GPIO21
 led_loop_led1:
 	fetch  1,  mem_module_my_key1_long_press_flag
@@ -1631,23 +1644,62 @@ led_loop_led1:
 	rtn blank  // 按键没释放继续轮询
 	fetch  1,  mem_module_my_led1_flage
 	rtn blank
-	arg 0x15,temp
+	arg LED1,temp
 	call  led_turn
 	jam 0,  mem_module_my_led1_flage
 	rtn
+
+
 //key1 长按事件处理
 led1_long_pressed:
 	fetch  1,  mem_module_my_key1_release_flage
 	nrtn blank  // 按键释放停止长按事件处理
+	//校验是否需要翻转LED
 	fetch  1,  mem_module_my_key1_long_press_counter
-	increase 1,  pdata
+	increase -1,  pdata
 	store  1,  mem_module_my_key1_long_press_counter
-	sub pdata, 10,  pdata
-	rtn positive
-	arg 0x15,temp
+	nrtn blank
+	arg LED1,temp
 	call  led_turn
-	jam 0,  mem_module_my_key1_long_press_counter
+
+	//检验是第一次进入还是第二次只有第二次进入才改变周期
+	fetch  1,  mem_module_my_key1_long_press_phase
+	increase -1,  pdata
+	store  1,  mem_module_my_key1_long_press_phase
+	rtn blank
+	//重置计数器
+	jam 0x02,  mem_module_my_key1_long_press_phase
+
+	//如果方向是0就跳转到led1_long_press_dir
+	fetch  1,  mem_module_my_key1_long_press_dir
+	branch  led1_long_press_dir, blank
+	//方向是1，周期递减
+	fetch  1,  mem_module_my_key1_long_press_period
+	store  1,  mem_module_my_key1_long_press_counter
+	arg STEP_SIZE1,  temp
+	isub  temp, pdata
+	store  1,  mem_module_my_key1_long_press_period
+	//如果mem_module_my_key1_long_press_period减到0了就改变方向
+	branch  led1_press_dir_change, blank
 	rtn
+//改变方向
+led1_press_dir_change:
+	//如果方向是0就改成1，如果是1就改成0
+	arg 0x01,  temp
+	fetch  1,  mem_module_my_key1_long_press_dir
+	ixor  temp, pdata
+	store  1,  mem_module_my_key1_long_press_dir
+	rtn
+led1_long_press_dir:
+	fetch  1,  mem_module_my_key1_long_press_period
+	increase STEP_SIZE1,  pdata
+	store  1,  mem_module_my_key1_long_press_period
+	store  1,  mem_module_my_key1_long_press_counter
+	sub pdata, TIMERS_NUM1,  null
+	//如果mem_module_my_key1_long_press_period加到TIMERS_NUM1就改变方向
+	nbranch  led1_press_dir_change, positive
+	rtn
+	
 
 // 扫 LED2 状态，连接 GPIO22
 led_loop_led2:
@@ -1657,7 +1709,7 @@ led_loop_led2:
 	rtn blank  // 按键没释放继续轮询
 	fetch  1,  mem_module_my_led2_flage
 	rtn blank
-	arg 0x16,temp
+	arg LED2,temp
 	call  led_turn
 	jam 0,  mem_module_my_led2_flage
 	rtn
@@ -1666,11 +1718,11 @@ led2_long_pressed:
 	fetch  1,  mem_module_my_key2_release_flage
 	nrtn blank  // 按键释放停止长按事件处理
 	fetch  1,  mem_module_my_key2_long_press_counter
-	increase 1,  pdata
+	increase STEP_SIZE2,  pdata
 	store  1,  mem_module_my_key2_long_press_counter
-	sub pdata, 10,  pdata
+	sub pdata, TIMERS_NUM2,  pdata
 	rtn positive
-	arg 0x16,temp
+	arg LED2,temp
 	call  led_turn
 	jam 0,  mem_module_my_key2_long_press_counter
 	rtn
