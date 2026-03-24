@@ -1567,8 +1567,6 @@ key1_released:
 	jam 0x0,  mem_module_my_key1_long_press_flag
 	//长按事件标志计数器
 	jam 0x0,  mem_module_my_key1_press_ticks
-	//长按事件定时器标志位
-	jam 0x0,  mem_module_my_key1_long_press_timer_flag
 	//按键释放后才继续轮询，避免按键长按时重复触发
 	jam 0x1 ,	mem_module_my_key1_release_flage
 	//按键消抖标志位
@@ -1588,8 +1586,6 @@ key1_long_pressed:
 	jam 0x1,  mem_module_my_key1_long_press_flag
 	//长按事件标志计数器
 	jam 0x0,  mem_module_my_key1_press_ticks
-	//长按事件定时器标志位
-	jam 0x1,  mem_module_my_key1_long_press_timer_flag
 	rtn
 
 

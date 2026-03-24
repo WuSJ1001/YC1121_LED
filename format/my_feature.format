@@ -1,29 +1,36 @@
 
 //WuSJ feature_flage
 
+
 xmemalloc my_feature(
+// key_flage按键按下标志位，低四位全是0表示按键松开，低四位全是1表示按键按下（位运算消抖）
 	1 mem_module_my_key1_flage
 	1 mem_module_my_key2_flage
+// led_flage灯翻转标志位，按键按下时置1，LEDloop检测到后翻转led灯
 	1 mem_module_my_led1_flage
 	1 mem_module_my_led2_flage
+// key_release_flage按键释放标志位，按键松开时置1，ledloop检测到1后返回，只有按键松开才翻转led灯
 	1 mem_module_my_key1_release_flage
 	1 mem_module_my_key2_release_flage
+// press_ticks负责记录长按时间，每10ms增加1，ledloop检测到达到长按时间后进入长按处理函数
 	1 mem_module_my_key1_press_ticks
 	1 mem_module_my_key2_press_ticks
+// long_press_flag长按事件标志位，ledloop检测到达到长按时间后置1，进入长按事件处理函数
 	1 mem_module_my_key1_long_press_flag
 	1 mem_module_my_key2_long_press_flag
+// counter负责计数时间来判断是否到相应的周期时间来决定是否翻转电平
 	1 mem_module_my_key1_long_press_counter
 	1 mem_module_my_key2_long_press_counter
+// period控制当前翻转时间，每次翻转LED后counter值从period读取
 	1 mem_module_my_key1_long_press_period
 	1 mem_module_my_key2_long_press_period
-	1 mem_module_my_key1_long_press_timer_flag
-	1 mem_module_my_key2_long_press_timer_flag
+// dir负责管理当前方向，是周期时间减少还是周期时间增长
 	1 mem_module_my_key1_long_press_dir
 	1 mem_module_my_key2_long_press_dir
+// phase负责记录进入翻转次数，只有偶数次才改变周期
 	1 mem_module_my_key1_long_press_phase
 	1 mem_module_my_key2_long_press_phase
 )
-
 
 (
 //KEY1长按闪灯周期控制变量，单位为10ms
